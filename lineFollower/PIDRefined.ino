@@ -1,6 +1,6 @@
 #include <QTRSensors.h>                 // For QTR sensor array
 #include <Wire.h>                       // For I2C communication
-#include <Adafruit_MotorShield.h>      // Adafruit Motor Shield Library
+#include <AFMotor.h>     // Adafruit Motor Shield Library
 
 /*************************************************************************
 *  Sensor Array object initialization 
@@ -27,8 +27,8 @@ const uint8_t baseSpeed = 150;        // Base motor speed
 /*************************************************************************
 *  Motor Shield Setup
 *************************************************************************/
-Adafruit_MotorShield AFMS = Adafruit_MotorShield(); // Create the motor shield object
-Adafruit_DCMotor *leftMotor = AFMS.getMotor(1);     // Motor A
+ // Create the motor shield object
+AF_DCMotor leftmotor(1);     // Motor A
 Adafruit_DCMotor *rightMotor = AFMS.getMotor(2);    // Motor B
 
 /*************************************************************************
@@ -49,7 +49,7 @@ void setup() {
   pinMode(buttonCalibrate, INPUT_PULLUP);
   pinMode(buttonStart, INPUT_PULLUP);
   
-  AFMS.begin();  // Initialize the motor shield
+
   calibrateSensors();  // Calibrate IR sensors
 }
 
@@ -70,15 +70,15 @@ void calibrateSensors() {
 void handleTurn(int error) {
   if (error < -1000) {  // Sharp right turn
     // Turn right: stop left motor, move right motor forward
-    leftMotor->setSpeed(0);
-    rightMotor->setSpeed(maxSpeed);
-    rightMotor->run(FORWARD);
+    leftmotor.setSpeed(0);
+    rightmotor.setSpeed(maxSpeed);
+    rightmotor.run(FORWARD);
     delay(300);  // Adjust delay for turn duration
   } else if (error > 1000) {  // Sharp left turn
     // Turn left: stop right motor, move left motor forward
-    leftMotor->setSpeed(maxSpeed);
-    rightMotor->setSpeed(0);
-    leftMotor->run(FORWARD);
+    leftmotor.setSpeed(maxSpeed);
+    rightmotor.setSpeed(0);
+    leftmotor.run(FORWARD);
     delay(300);  // Adjust delay for turn duration
   }
   
@@ -144,14 +144,14 @@ void PID_control() {
 *  Motor Control Functions: Set motor speeds
 *************************************************************************/
 void setMotorSpeeds(int leftSpeed, int rightSpeed) {
-  leftMotor->setSpeed(leftSpeed);
-  rightMotor->setSpeed(rightSpeed);
+  leftmotor.setSpeed(leftSpeed);
+  rightmotor.setSpeed(rightSpeed);
   
-  leftMotor->run(FORWARD);
-  rightMotor->run(FORWARD);
+  leftmotor.run(FORWARD);
+  rightmotor.run(FORWARD);
 }
 
 void stopMotors() {
-  leftMotor->run(RELEASE);
-  rightMotor->run(RELEASE);
+  leftmotor.run(RELEASE);
+  rightmotor.run(RELEASE);
 }

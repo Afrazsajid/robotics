@@ -1,13 +1,13 @@
 #include <QTRSensors.h>
 #include <Wire.h>
-#include <Adafruit_MotorShield.h>
+#include <AFMotor.h>
 
-// Create Adafruit Motor Shield object
-Adafruit_MotorShield AFMS = Adafruit_MotorShield(); 
+
+ 
 
 // Connect motors to ports on the motor shield
-Adafruit_DCMotor *leftMotor = AFMS.getMotor(1);  // Motor 1 connected to M1 on shield
-Adafruit_DCMotor *rightMotor = AFMS.getMotor(2); // Motor 2 connected to M2 on shield
+AF_DCMotor leftmotor(1);  // Motor 1 connected to M1 on shield
+AF_DCMotor rightmotor(2); // Motor 2 connected to M2 on shield
 
 // Define speed
 int motorSpeed = 200;
@@ -20,12 +20,12 @@ uint16_t sensorValues[SensorCount];
 void setup() {
   Serial.begin(9600); // Initialize serial communication
   
-  // Initialize motor shield
-  AFMS.begin();
+
+
   
   // Initialize QTR sensor array
   qtr.setTypeRC();
-  qtr.setSensorPins((const uint8_t[]){A0, A1, A2, A3, A4}, SensorCount);
+  qtr.setSensorPins((const uint8_t[]){A1, A2, A3, A4, A5}, SensorCount);
   
   // Calibrate the sensors
   calibrateSensors();
@@ -86,32 +86,33 @@ void calibrateSensors() {
 
 // Function to move forward
 void moveForward() {
-  leftMotor->setSpeed(motorSpeed);    // Set motor speed (0-255)
-  rightMotor->setSpeed(motorSpeed);
-  leftMotor->run(FORWARD);            // Move both motors forward
-  rightMotor->run(FORWARD);
+leftmotor.setSpeed(motorSpeed);
+rightmotor.setSpeed(motorSpeed);
+leftmotor.run(FORWARD);
+rightmotor.run(FORWARD);
+
 }
 
 // Function to turn left
 void turnLeft() {
-  leftMotor->setSpeed(0);             // Stop left motor
-  rightMotor->setSpeed(motorSpeed);   // Run right motor to turn left
-  leftMotor->run(RELEASE);            // Release the left motor
-  rightMotor->run(FORWARD);           // Move right motor forward
+  leftmotor.setSpeed(0);             // Stop left motor
+  rightmotor.setSpeed(motorSpeed);   // Run right motor to turn left
+  leftmotor.run(RELEASE);            // Release the left motor
+  rightmotor.run(FORWARD);           // Move right motor forward
 }
 
 // Function to turn right
 void turnRight() {
-  rightMotor->setSpeed(0);            // Stop right motor
-  leftMotor->setSpeed(motorSpeed);    // Run left motor to turn right
-  rightMotor->run(RELEASE);           // Release the right motor
-  leftMotor->run(FORWARD);            // Move left motor forward
+  rightmotor.setSpeed(0);            // Stop right motor
+  leftmotor.setSpeed(motorSpeed);    // Run left motor to turn right
+  rightmotor.run(RELEASE);           // Release the right motor
+  leftmotor.run(FORWARD);            // Move left motor forward
 }
 
 // Function to stop both motors
 void stopMotors() {
-  leftMotor->setSpeed(0);             // Stop left motor
-  rightMotor->setSpeed(0);            // Stop right motor
-  leftMotor->run(RELEASE);            // Release the motors
-  rightMotor->run(RELEASE);
+  leftmotor.setSpeed(0);             // Stop left motor
+  rightmotor.setSpeed(0);            // Stop right motor
+  leftmotor.run(RELEASE);            // Release the motors
+  rightmotor.run(RELEASE);
 }
