@@ -29,14 +29,9 @@ const uint8_t baseSpeed = 150;        // Base motor speed
 *************************************************************************/
  // Create the motor shield object
 AF_DCMotor leftmotor(1);     // Motor A
-Adafruit_DCMotor *rightMotor = AFMS.getMotor(2);    // Motor B
+AF_DCMotor rightmotor(2);    // Motor B
 
-/*************************************************************************
-*  Buttons pins declaration
-*************************************************************************/
-const int buttonCalibrate = 8;
-const int buttonStart = 2;
-bool onoff = false;
+
 
 /*************************************************************************
 *  Setup function: Initializes motors, sensors, and calibration
@@ -44,10 +39,9 @@ bool onoff = false;
 void setup() {
   qtr.setTypeRC();
   qtr.setSensorPins((const uint8_t[]){A0, A1, A2, A3, A4}, SensorCount);
-  qtr.setEmitterPin(7); // LED control pin
   
-  pinMode(buttonCalibrate, INPUT_PULLUP);
-  pinMode(buttonStart, INPUT_PULLUP);
+  
+
   
 
   calibrateSensors();  // Calibrate IR sensors
@@ -91,21 +85,13 @@ void handleTurn(int error) {
 *  Main Loop: Handles robot's line following with PID control
 *************************************************************************/
 void loop() {
-  static unsigned long lastDebounceTime = 0;
-  const unsigned long debounceDelay = 50;  // Debounce delay
+
   
-  int reading = digitalRead(buttonStart);
+
   
-  if (reading == LOW && (millis() - lastDebounceTime > debounceDelay)) {
-    onoff = !onoff;
-    lastDebounceTime = millis();  // Record the time of the button press
-  }
-  
-  if (onoff) {
+ 
     PID_control();  // Apply PID control for line following
-  } else {
-    stopMotors();  // Stop motors if off
-  }
+
 }
 
 /*************************************************************************
