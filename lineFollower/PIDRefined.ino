@@ -1,143 +1,196 @@
-#include <QTRSensors.h>                 // For QTR sensor array
-#include <Wire.h>                       // For I2C communication
-#include <AFMotor.h>     // Adafruit Motor Shield Library
+#include <AFMotor.h>
 
-/*************************************************************************
-*  Sensor Array object initialization 
-*************************************************************************/
-QTRSensors qtr;
-const uint8_t SensorCount = 5;        // Using a 5-channel IR sensor array
-uint16_t sensorValues[SensorCount];
-
-/*************************************************************************
-*  PID control system variables 
-*************************************************************************/
-const float Kp = 0.1;                 // Proportional control
-const float Ki = 0.0002;              // Integral control
-const float Kd = 0.7;                 // Derivative control
-int lastError = 0;
-float integral = 0;                    // Integral term to prevent windup
-
-/*************************************************************************
-*  Motor speed variables
-*************************************************************************/
-const uint8_t maxSpeed = 200;         // Max motor speed
-const uint8_t baseSpeed = 150;        // Base motor speed
-
-/*************************************************************************
-*  Motor Shield Setup
-*************************************************************************/
- // Create the motor shield object
-AF_DCMotor leftmotor(1);     // Motor A
-AF_DCMotor rightmotor(2);    // Motor B
+// Define the number of sensors you're using
+#define NUM_SENSORS 5
 
 
+// Define the pins for each sensor
+const uint8_t sensorPins[NUM_SENSORS] = {A0, A1, A2, A3, A4};
 
-/*************************************************************************
-*  Setup function: Initializes motors, sensors, and calibration
-*************************************************************************/
+// Arrays to store the calibration values
+uint16_t sensorMin[NUM_SENSORS];
+uint16_t sensorMax[NUM_SENSORS];
+
+// Array to hold the current sensor readings
+uint16_t sensorValues[NUM_SENSORS];
+
+// Connect motors to ports on the motor shield
+AF_DCMotor leftMotor(1);  // Motor 1 connected to M1 on shield
+AF_DCMotor rightMotor(2); // Motor 2 connected to M2 on shield
+
+// PID control variables
+int baseSpeed = 80;   // Base motor speed
+int maxSpeed = 150;    // Maximum motor speed (0-255 for the motor driver)
+float Kp = 0.5;        // Proportional constant
+float Ki = 0.0;        // Integral constant (start with 0)
+float Kd = 1.0;        // Derivative constant
+
+int lastError = 0;     // Previous error for calculating derivative
+int integral = 0;      // Integral of the error
+
 void setup() {
-  qtr.setTypeRC();
-  qtr.setSensorPins((const uint8_t[]){A0, A1, A2, A3, A4}, SensorCount);
-  
-  
+  // Initialize serial communication for output
+  Serial.begin(9600);
 
-  
+  // Set initial motor speeds to 0
+  leftMotor.setSpeed(0);
+  rightMotor.setSpeed(0);
+  leftMotor.run(FORWARD);  // Set initial direction to FORWARD
+  rightMotor.run(FORWARD);
 
-  calibrateSensors();  // Calibrate IR sensors
+  // Initialize the sensor calibration
+  calibrateSensors();
 }
 
-/*************************************************************************
-*  Calibration Function: Calibrates the IR sensor array
-*************************************************************************/
+void loop() {
+  if (allSensorsWhite()) {
+        // Stop motors if all sensors are not detecting black
+        leftMotor.setSpeed(0);
+        rightMotor.setSpeed(0);
+        leftMotor.run(RELEASE);
+        rightMotor.run(RELEASE);
+        Serial.println("All sensors white. Motors stopped.");
+    } else {
+
+  readSensors();
+
+  // Use PID control to adjust motor speeds based on the error
+  PID_control();
+        // Continue driving or implement PID control logic
+        // PID_control(); // Uncomment this if you have PID control logic
+    }
+  // Get the sen
+
+  delay(50);  // Small delay between loops to allow time for motors to adjust
+}
+
+// Function to calibrate the sensors (stores min and max values)
 void calibrateSensors() {
-  Serial.begin(9600);
-  Serial.println("Calibrating sensors...");
-  
-  for (uint16_t i = 0; i < 200; i++) { // Reduced calibration iterations
-    qtr.calibrate();
-    delay(10); // Reduced delay for faster calibration
+  Serial.println("Calibrating... Move the sensors over white and black surfaces.");
+
+  // Initialize calibration values
+  for (uint8_t i = 0; i < NUM_SENSORS; i++) {
+    sensorMin[i] = 1023;  // Set to the maximum possible value initially
+    sensorMax[i] = 0;     // Set to the minimum possible value initially
   }
+
+  // Perform calibration
+  for (uint16_t t = 0; t < 1000; t++) {  // Calibrate for some duration
+    readSensors();
+
+    // Update min and max values for each sensor
+    for (uint8_t i = 0; i < NUM_SENSORS; i++) {
+      if (sensorValues[i] < sensorMin[i]) {
+        sensorMin[i] = sensorValues[i];
+      }
+      if (sensorValues[i] > sensorMax[i]) {
+        sensorMax[i] = sensorValues[i];
+      }
+    }
+
+    delay(5);
+  }
+
   Serial.println("Calibration complete.");
 }
 
-void handleTurn(int error) {
-  if (error < -1000) {  // Sharp right turn
-    // Turn right: stop left motor, move right motor forward
-    leftmotor.setSpeed(0);
-    rightmotor.setSpeed(maxSpeed);
-    rightmotor.run(FORWARD);
-    delay(300);  // Adjust delay for turn duration
-  } else if (error > 1000) {  // Sharp left turn
-    // Turn left: stop right motor, move left motor forward
-    leftmotor.setSpeed(maxSpeed);
-    rightmotor.setSpeed(0);
-    leftmotor.run(FORWARD);
-    delay(300);  // Adjust delay for turn duration
+// Function to read sensor values using analogRead
+void readSensors() {
+  for (uint8_t i = 0; i < NUM_SENSORS; i++) {
+    sensorValues[i] = analogRead(sensorPins[i]);
+
+    // Normalize the readings between 0 and 1000 based on calibration
+    if (sensorValues[i] < sensorMin[i]) {
+      sensorValues[i] = 0;
+    } else if (sensorValues[i] > sensorMax[i]) {
+      sensorValues[i] = 1000;
+    } else {
+      sensorValues[i] = map(sensorValues[i], sensorMin[i], sensorMax[i], 0, 1000);
+    }
   }
-  
-  // Stop motors after turn
-  stopMotors();
 }
 
+// Function to calculate the error for PID control
+int calculateError() {
+  long weightedSum = 0;
+  long sum = 0;
 
-/*************************************************************************
-*  Main Loop: Handles robot's line following with PID control
-*************************************************************************/
-void loop() {
+  // Calculate a weighted average based on sensor positions and readings
+  for (uint8_t i = 0; i < NUM_SENSORS; i++) {
+    weightedSum += (long)sensorValues[i] * (i * 1000);  // Weights: 0, 1000, 2000, 3000, 4000
+    sum += sensorValues[i];
+  }
 
-  
+  // If no line detected (all sensors are reading white), return error = 0
+  if (sum == 0) {
+    return 0;  // Could be adjusted to another default value if needed
+  }
 
-  
- 
-    PID_control();  // Apply PID control for line following
+  // Calculate the weighted position of the line
+  int position = weightedSum / sum;
 
+  // Special handling for edge cases:
+  // Case 1: If the last two sensors on the left (sensors 0 and 1) detect the line
+  if (sensorValues[0] > 800 && sensorValues[1] > 800 && sensorValues[2] < 500 && sensorValues[3] < 500 && sensorValues[4] < 500) {
+    return -700;  // Error for the line being far left
+  }
+
+  // Case 2: If the last two sensors on the right (sensors 3 and 4) detect the line
+  if (sensorValues[3] > 800 && sensorValues[4] > 800 && sensorValues[0] < 500 && sensorValues[1] < 500 && sensorValues[2] < 500) {
+    return 700;  // Error for the line being far right
+  }
+
+  // The target position is the center (2000), so error is the deviation from this center
+  int error = position - 2000;  // Error will be negative if too far left, positive if too far right
+
+  // Limit the error to be within the desired range
+  if (error > 600) {
+    error = 300;
+  } else if (error < -600) {
+    error = -300;
+  }
+
+  return error;
 }
 
-/*************************************************************************
-*  PID Control Function: Implements the PID logic for smooth line following
-*************************************************************************/
+// Function to implement PID control and adjust motor speeds
 void PID_control() {
-  uint16_t position = qtr.readLineBlack(sensorValues);  // Read sensor data
-  int error = 2000 - position;  // Center position is 2000 (ideal)
+  // Get the current error from sensor readings
+  int error = calculateError();
 
-  // Detect a sharp turn
-  if (error < -1000 || error > 1000) { // Adjust threshold based on your setup
-    handleTurn(error);
-    return;  // Exit PID control to avoid conflicting commands
-  }
+  // Calculate the PID control values
+  integral += error;  // Integral term
+  int derivative = error - lastError;  // Derivative term
+  lastError = error;  // Save the error for the next loop
 
-  // Regular PID calculations
-  integral += error;  
-  integral = constrain(integral, -maxSpeed, maxSpeed);
-  int derivative = error - lastError;
-  lastError = error;
-  
+  // Calculate the correction using the PID formula
   int correction = (Kp * error) + (Ki * integral) + (Kd * derivative);
-  
+
+  // Calculate the motor speeds
   int leftSpeed = baseSpeed + correction;
   int rightSpeed = baseSpeed - correction;
-  
-  // Clamp speeds to max limits
+
+  // Constrain motor speeds to max and min values
   leftSpeed = constrain(leftSpeed, 0, maxSpeed);
   rightSpeed = constrain(rightSpeed, 0, maxSpeed);
-  
+
+  // Set motor speeds
   setMotorSpeeds(leftSpeed, rightSpeed);
 }
 
-
-/*************************************************************************
-*  Motor Control Functions: Set motor speeds
-*************************************************************************/
+// Function to set motor speeds using AFMotor library
 void setMotorSpeeds(int leftSpeed, int rightSpeed) {
-  leftmotor.setSpeed(leftSpeed);
-  rightmotor.setSpeed(rightSpeed);
+  leftMotor.setSpeed(leftSpeed);
+  rightMotor.setSpeed(rightSpeed);
   
-  leftmotor.run(FORWARD);
-  rightmotor.run(FORWARD);
+  leftMotor.run(FORWARD);
+  rightMotor.run(FORWARD);
 }
-
-void stopMotors() {
-  leftmotor.run(RELEASE);
-  rightmotor.run(RELEASE);
+bool allSensorsWhite() {
+    for (uint8_t i = 0; i < NUM_SENSORS; i++) {
+        if (sensorValues[i] > 800) {  // Assuming 800 is the threshold for detecting black
+            return false; // At least one sensor is detecting black
+        }
+    }
+    return true; // All sensors are detecting white
 }
