@@ -145,9 +145,9 @@ int calculateError() {
 
   // Limit the error to be within the desired range
   if (error > 600) {
-    error = 300;
+    error = 700;
   } else if (error < -600) {
-    error = -300;
+    error = -700;
   }
 
   return error;
