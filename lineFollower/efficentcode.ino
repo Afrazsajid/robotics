@@ -18,7 +18,7 @@ AF_DCMotor leftMotor(1);  // Motor 1 connected to M1 on shield
 AF_DCMotor rightMotor(2); // Motor 2 connected to M2 on shield
 
 // PID control variables
-int baseSpeed = 140;  // Base motor speed for fast turns
+int baseSpeed = 150;  // Base motor speed for fast turns
 int maxSpeed = 240;   // Maximum motor speed (0-255 for the motor driver)
 float Kp = 0.6;       // Proportional constant
 float Ki = 0.0;       // Integral constant (start with 0)
@@ -44,12 +44,14 @@ void setup() {
 
 void loop() {
   if (allSensorsWhite()) {
+    
     // Stop motors if all sensors are detecting white (no line)
     recoverFromOvershoot();
+    readSensors()
   } else {
     readSensors();
     int error = calculateError();
-    adjustForSharpTurn(error);
+  
     PID_control(error);
   }
   delay(20);  // Short delay for smoother control
@@ -100,16 +102,16 @@ int calculateError() {
   if (error < 0) lastKnownDirection = -1;
   else if (error > 0) lastKnownDirection = 1;
 
-  return constrain(error, -800, 800); // Limit error for control
+  return constrain(error, -700, 700); // Limit error for control
 }
 
 // Function to detect and handle sharp turns by reversing the inside wheel
 void adjustForSharpTurn(int error) {
   // Detect left or right sharp turn
-  if (error < -700) {
+  if (error < -600) {
     leftMotor.run(BACKWARD); // Reverse left motor for sharper left turn
     delay(50);
-  } else if (error > 700) {
+  } else if (error > 600) {
     rightMotor.run(BACKWARD); // Reverse right motor for sharper right turn
     delay(50);
   }
@@ -145,10 +147,9 @@ void setMotorSpeeds(int leftSpeed, int rightSpeed) {
 
 // Function to check if all sensors are detecting white
 bool allSensorsWhite() {
-  for (uint8_t i = 0; i < NUM_SENSORS; i++) {
-    if (sensorValues[i] > 800) return false;
+ if (sensorValues[0] >= 800 && sensorValues[1] >= 800 && sensorValues[2] >= 800 && sensorValues[3] >= 800 && sensorValues[4] >= 800) {  return true;
   }
-  return true;
+ return false
 }
 
 // Function to recover from an overshoot by moving based on last known position
@@ -160,5 +161,5 @@ void recoverFromOvershoot() {
     leftMotor.setSpeed(0);
     rightMotor.setSpeed(baseSpeed);
   }
-  delay(50); // Small delay for recovery
+  delay(100); // Small delay for recovery
 }

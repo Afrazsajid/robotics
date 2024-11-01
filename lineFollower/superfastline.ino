@@ -51,7 +51,7 @@ boolean onoff = false;
 
 int val, cnt = 0, v[3];
 
-uint16_t position;
+uint16_t error;
 int P, D, I, previousError, PIDvalue, error;
 int lsp, rsp;
 int lfspeed = 230;

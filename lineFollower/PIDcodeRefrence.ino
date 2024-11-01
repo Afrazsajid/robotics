@@ -15,21 +15,15 @@
  * Author: Bot Reboot
  */
 
-#include  <QTRSensors.h> //Make sure to install the library
-
-/*************************************************************************
-*  Sensor Array object initialisation 
-*************************************************************************/
+#include  <QTRSensors.h>
 QTRSensors  qtr;
 const uint8_t SensorCount = 8;
 uint16_t sensorValues[SensorCount];
 
-/*************************************************************************
-*  PID control system variables 
-*************************************************************************/
-float  Kp = 0; //related to the proportional control term; 
-              //change the  value by trial-and-error (ex: 0.07).
-float Ki = 0; //related to the integral  control term; 
+
+float  Kp = 0;  
+              
+float Ki = 0;  
               //change the value by trial-and-error (ex: 0.0008).
 float  Kd = 0; //related to the derivative control term; 
               //change the  value by trial-and-error (ex: 0.6).

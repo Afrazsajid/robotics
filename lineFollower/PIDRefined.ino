@@ -44,6 +44,7 @@ void setup() {
 
 void loop() {
   if (allSensorsWhite()) {
+    readSensors();
         // Stop motors if all sensors are not detecting black
         leftMotor.setSpeed(0);
         rightMotor.setSpeed(0);
